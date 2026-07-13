@@ -96,6 +96,10 @@ void setup() {
                 config->_oled->init();
             }
 
+            if (config->_thc) {
+                config->_thc->init();
+            }
+
             config->_stepping->init();  // Configure stepper interrupt timers
 
             plan_init();

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 -	Stefan de Bruijn
+// Copyright (c) 2021 -  Stefan de Bruijn
 // Use of this source code is governed by a GPLv3 license that can be found in the LICENSE file.
 
 #pragma once
@@ -70,7 +70,6 @@ namespace Configuration {
                         auto product = it->create();
                         inst.push_back(product);
                         handler.enterFactory(it->name(), *product);
-
                         return;
                     }
                 }

@@ -10,6 +10,9 @@
 #include "../Motors/NullMotor.h"
 
 #include "../Spindles/NullSpindle.h"
+#include "../Spindles/THCSpindle.h"
+// Forzar linker: THCSpindle autoregistro (InstanceBuilder)
+namespace Spindles { void __force_thcspindle_link(); }
 #include "../UartChannel.h"
 
 #include "../SettingsDefinitions.h"  // config_filename
@@ -31,7 +34,11 @@ Machine::MachineConfig* config;
 // TODO FIXME: Split this file up into several files, perhaps put it in some folder and namespace Machine?
 
 namespace Machine {
+    // Puntero para el spindle THC (creado por section handler, no por factory)
+    Spindles::THC* _thc_spindle = nullptr;
+
     void MachineConfig::group(Configuration::HandlerBase& handler) {
+        log_warn("MC: group() called, handlerType=" << (int)handler.handlerType());
         handler.item("board", _board);
         handler.item("name", _name);
         handler.item("meta", _meta);
@@ -62,11 +69,15 @@ namespace Machine {
         handler.section("start", _start);
         handler.section("parking", _parking);
 
+        handler.section("SerialTHC", _thc);
+
+        // Sección THCSpindle (directa, no por factory que no matchea)
+        Spindles::__force_thcspindle_link();
+        handler.section("THCSpindle", _thc_spindle);
+
         handler.section("user_outputs", _userOutputs);
 
         handler.section("oled", _oled);
-        
-        Spindles::SpindleFactory::factory(handler, _spindles);
 
         // TODO: Consider putting these under a gcode: hierarchy level? Or motion control?
         handler.item("arc_tolerance_mm", _arcTolerance, 0.001, 1.0);
@@ -128,7 +139,13 @@ namespace Machine {
         }
 
         if (_spindles.size() == 0) {
+            log_warn("No spindle configured via factory, using Null");
             _spindles.push_back(new Spindles::Null());
+        }
+        // Si se configuró THCSpindle via section handler, usarlo
+        if (_thc_spindle != nullptr) {
+            log_warn("THCSpindle configured via section handler");
+            _spindles.insert(_spindles.begin(), _thc_spindle);
         }
 
         // Precaution in case the full spindle initialization does not happen

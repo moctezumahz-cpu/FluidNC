@@ -388,8 +388,11 @@ static uint8_t next_block_index(uint8_t block_index) {
    NOTE: Computation units are in steps, millimeters, and minutes.
 */
 void Stepper::prep_buffer() {
-    // Block step prep buffer, while in a suspend state and there is no suspend motion to execute.
+    // Corner OFF when endMotion is set (motion finished)
     if (sys.step_control.endMotion) {
+        if (spindle) {
+            spindle->corner_check(-1, -1);  // -1 = force OFF
+        }
         return;
     }
 
@@ -404,6 +407,10 @@ void Stepper::prep_buffer() {
             }
 
             if (pl_block == NULL) {
+                // No more blocks — force corner OFF before returning
+                if (spindle) {
+                    spindle->corner_check(-1, -1);
+                }
                 return;  // No planner blocks. Exit.
             }
 
@@ -748,6 +755,11 @@ void Stepper::prep_buffer() {
         auto lastseg        = segment_next_head;
         segment_next_head   = segment_next_head >= (config->_stepping->_segments - 1) ? 0 : segment_next_head + 1;
         segment_buffer_head = lastseg;
+
+        // Corner detection for plasma THC anti-dive
+        if (spindle && pl_block && pl_block->programmed_rate > 0.0f) {
+            spindle->corner_check(prep.current_speed, pl_block->programmed_rate);
+        }
 
         // Update the appropriate planner and segment data.
         pl_block->millimeters = mm_remaining;

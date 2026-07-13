@@ -49,8 +49,11 @@ namespace Spindles {
         virtual void config_message() = 0;
         virtual bool isRateAdjusted();
         virtual bool use_delay_settings() const { return true; }
-
+        virtual void deinit() {}
         virtual void setSpeedfromISR(uint32_t dev_speed) = 0;
+
+        // Corner detection (overridden by THCSpindle, no-op para otros)
+        virtual void corner_check(float actual_speed, float programmed_rate) {}
 
         void spinDown() { setState(SpindleState::Disable, 0); }
 

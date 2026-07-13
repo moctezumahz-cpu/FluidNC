@@ -25,6 +25,7 @@
 #include "I2CBus.h"
 #include "I2SOBus.h"
 #include "UserOutputs.h"
+#include "../THCBridge.h"
 #include "Macros.h"
 
 namespace Machine {
@@ -72,6 +73,7 @@ namespace Machine {
         Start*                _start          = nullptr;
         Parking*              _parking        = nullptr;
         OLED*                 _oled           = nullptr;
+        THCBridge*            _thc            = nullptr;
         Spindles::SpindleList _spindles;
 
         UartChannel* _uart_channels[MAX_N_UARTS] = { nullptr };
