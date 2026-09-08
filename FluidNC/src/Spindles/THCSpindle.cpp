@@ -31,6 +31,17 @@ namespace Spindles {
             log_warn("THC: corner pin configured — " << _corner_pin.name());
         }
 
+        if (!_error_pin.undefined()) {
+            _error_pin.setAttr(Pin::Attr::Input);
+            log_warn("THC: error pin configured — " << _error_pin.name());
+        }
+
+        // Resetear flags de error
+        _ready_lost       = false;
+        _error_triggered  = false;
+        _ready_was_high   = false;
+        _current_state    = SpindleState::Unknown;
+
         if (_speeds.size() == 0) {
             linearSpeeds(300, 100.0f);  // S = volts
         }
@@ -52,7 +63,7 @@ namespace Spindles {
         }
 
         if (state == SpindleState::Disable) {
-            // M5
+            // M5: apagar todo
             if (!_corner_pin.undefined()) {
                 _corner_pin.off();
             }
@@ -60,8 +71,31 @@ namespace Spindles {
                 config->_thc->set_start(false);
             }
             _start_pin.off();
+            _current_state   = SpindleState::Disable;
+            _ready_lost      = false;
+            _error_triggered = false;
+            _ready_was_high  = false;
             return;
         }
+
+        // M3: si ya estamos en Cw (M3 duplicado), hacer M5 implícito y luego M3 de nuevo
+        if (_current_state == SpindleState::Cw) {
+            log_warn("THC: M3 duplicado — haciendo M5+M3 implícito");
+            // M5 implícito
+            if (!_corner_pin.undefined()) {
+                _corner_pin.off();
+            }
+            if (config->_thc) {
+                config->_thc->set_start(false);
+            }
+            _start_pin.off();
+            // Seguir con M3 abajo (sin tocar flags aún)
+        }
+
+        // Reset flags para nuevo M3
+        _ready_lost       = false;
+        _error_triggered  = false;
+        _ready_was_high   = false;
 
         // M3: START al THC + notify bridge
         if (config->_thc) {
@@ -70,11 +104,11 @@ namespace Spindles {
         _start_pin.on();
 
         // Esperar READY del THC con timeout
-        // Si el pin READY (gpio.39) se pone HIGH, sale al instante
         int remaining = _pierce_timeout_ms;
         while (remaining > 0) {
             if (sys.abort) {
                 _start_pin.off();
+                _current_state = SpindleState::Disable;
                 return;
             }
             if (_ready_pin.read() == Pin::On) {
@@ -86,9 +120,74 @@ namespace Spindles {
             remaining -= 10;
         }
         if (remaining <= 0) {
-            log_warn("THC: READY timeout " << _pierce_timeout_ms << "ms — apagando START");
+            log_warn("THC: READY timeout " << _pierce_timeout_ms << "ms — apagando START, queda esperando");
             _start_pin.off();
+            // El spindle queda "activo" pero sin START — se queda en loop de espera
+            _current_state = SpindleState::Cw;
+            return;
         }
+
+        // READY recibido — entramos en modo corte
+        _ready_was_high  = true;
+        _current_state   = SpindleState::Cw;
+    }
+
+    // ── Poll periódico: monitoreo durante el corte ──
+    void THC::poll() {
+        // Solo monitorear si estamos en modo corte
+        if (_current_state != SpindleState::Cw) return;
+        if (_error_triggered) return;  // Ya en error
+
+        // 1. READY lost durante corte
+        if (_ready_was_high && _ready_pin.read() == Pin::Off) {
+            log_error("THC: READY lost during cut — plasma extinguished");
+            _ready_lost = true;
+            trigger_error();
+            return;
+        }
+
+        // 2. Error pin desde THC (error_pin = HIGH = error)
+        if (!_error_pin.undefined() && _error_pin.read() == Pin::On) {
+            log_error("THC: error pin asserted by THC");
+            trigger_error();
+            return;
+        }
+
+        // 3. Error desde RS-485 (campo Err del THC)
+        if (config->_thc) {
+            if (config->_thc->get_error()) {
+                log_error("THC: error reported by THC-MCH (Err=1)");
+                trigger_error();
+                return;
+            }
+            if (config->_thc->comm_lost()) {
+                log_error("THC: RS-485 communication lost (2s timeout)");
+                trigger_error();
+                return;
+            }
+        }
+    }
+
+    // ── Trigger de error: apaga todo y dispara alarm ──
+    void THC::trigger_error() {
+        if (_error_triggered) return;  // Solo una vez
+        _error_triggered = true;
+
+        // START off
+        _start_pin.off();
+
+        // Corner off
+        if (!_corner_pin.undefined()) {
+            _corner_pin.off();
+        }
+
+        // Bridge: start=false
+        if (config->_thc) {
+            config->_thc->set_start(false);
+        }
+
+        // Disparar alarm del sistema FluidNC
+        rtAlarm = ExecAlarm::SpindleControl;
     }
 
     // Corner detection para anti-dive
@@ -96,6 +195,11 @@ namespace Spindles {
         if (_corner_pin.undefined()) return;
         // Sentinel: -1 = force OFF
         if (actual_speed < 0) {
+            _corner_pin.off();
+            return;
+        }
+        // Si hay error, corner siempre OFF
+        if (_error_triggered || _ready_lost) {
             _corner_pin.off();
             return;
         }

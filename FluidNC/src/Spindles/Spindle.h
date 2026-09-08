@@ -55,6 +55,9 @@ namespace Spindles {
         // Corner detection (overridden by THCSpindle, no-op para otros)
         virtual void corner_check(float actual_speed, float programmed_rate) {}
 
+        // Periodic poll (THCSpindle: monitoreo READY durante corte)
+        virtual void poll() {}
+
         void spinDown() { setState(SpindleState::Disable, 0); }
 
         bool                  is_reversable;

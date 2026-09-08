@@ -14,6 +14,11 @@
     - threshold_corner: 70 (porcentaje de feedrate para considerar esquina)
     
     ready_pin es obligatorio. El timeout es solo safety net.
+
+    Manejo de errores:
+    - READY lost durante corte → trigger_error()
+    - error_pin: entrada desde THC, HIGH = error
+    - poll() se llama desde Stepper::prep_buffer() para monitoreo periódico
 */
 
 #include "Spindle.h"
@@ -35,7 +40,13 @@ namespace Spindles {
         void config_message() override;
 
         // Corner detection para anti-dive
-        void corner_check(float actual_speed, float programmed_rate);
+        void corner_check(float actual_speed, float programmed_rate) override;
+
+        // Poll periódico: monitoreo READY + errores RS-485/THC
+        void poll() override;
+
+        // Trigger de error: apaga todo y dispara alarm
+        void trigger_error();
 
         void group(Configuration::HandlerBase& handler) override {
             handler.item("start_pin", _start_pin);
@@ -43,6 +54,7 @@ namespace Spindles {
             handler.item("pierce_timeout_ms", _pierce_timeout_ms, 500, 30000);
             handler.item("corner_pin", _corner_pin);
             handler.item("threshold_corner", _threshold_corner, 50, 90);
+            handler.item("error_pin", _error_pin);
             Spindle::group(handler);
         }
 
@@ -56,5 +68,11 @@ namespace Spindles {
         int _pierce_timeout_ms = 5000;
         Pin _corner_pin;         // Corner detection output
         int _threshold_corner = 70;
+        Pin _error_pin;          // Error input from THC (opcional)
+
+        // Flags de error (volatile por acceso desde distintos contextos)
+        volatile bool _ready_lost       = false;
+        volatile bool _error_triggered  = false;
+        bool _ready_was_high            = false;  // READY se afirmó alguna vez
     };
 }

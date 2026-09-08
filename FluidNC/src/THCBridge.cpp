@@ -142,6 +142,8 @@ void THCBridge::parse_telemetry(const char* line) {
     // Format: V:140,VsP:140,Sd:5000,IHS:2500,ES:0,Str:0,Po:0,...
     // Parse key:value pairs
     const char* p = line;
+    bool any_key_matched = false;  // Para detectar trama válida
+
     while (*p) {
         // Skip to next key
         while (*p && !((*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z'))) p++;
@@ -166,25 +168,31 @@ void THCBridge::parse_telemetry(const char* line) {
         if (*p == ',') p++;
 
         // Map key to telemetry field
-        if      (strcmp(key, "V") == 0)    _tel.voltage = ival;
+        if      (strcmp(key, "V") == 0)    { _tel.voltage = ival; any_key_matched = true; }
         else if (strcmp(key, "VsP") == 0)  _tel.setpoint = ival;
         else if (strcmp(key, "ES") == 0)   _tel.sequence_state = ival;
         else if (strcmp(key, "Po") == 0)   _tel.position = ival;
         else if (strcmp(key, "Str") == 0)  _tel.start = ival;
         else if (strcmp(key, "Up") == 0)   _tel.up = ival;
         else if (strcmp(key, "Dwn") == 0)  _tel.down = ival;
-        else if (strcmp(key, "Rdy") == 0)  _tel.ready = ival;
+        else if (strcmp(key, "Rdy") == 0)  { _tel.ready = ival; any_key_matched = true; }
         else if (strcmp(key, "Prb") == 0)  _tel.probe = ival;
         else if (strcmp(key, "Col") == 0)  _tel.collision = ival;
         else if (strcmp(key, "Cor") == 0)  _tel.corner = ival;
         else if (strcmp(key, "Lim") == 0)  _tel.lim_alto = ival;
-        else if (strcmp(key, "Err") == 0)  _tel.error = ival;
+        else if (strcmp(key, "Err") == 0)  { _tel.error = ival; any_key_matched = true; }
         else if (strcmp(key, "Diag") == 0) _tel.diag = ival;
         else if (strcmp(key, "IHS") == 0)  _tel.ihs = ival;
         else if (strcmp(key, "Sd") == 0)   _tel.start_delay = ival;
 
         // Arc established: sequence state >= 5 (THC tracking)
         _tel.arc_established = (_tel.sequence_state >= 5 && _tel.sequence_state < 6);
+    }
+
+    // Si se parseó al menos una clave crítica → trama válida → reset timeout
+    if (any_key_matched) {
+        _comm_timeout = 0;
+        _comm_lost    = false;
     }
 }
 
@@ -198,6 +206,13 @@ void THCBridge::task_loop(void* arg) {
         if (line.length() > 0) {
             bridge->parse_telemetry(line.c_str());
         }
+
+        // RS-485 timeout: si pasan ~2s sin trama válida, marcar pérdida
+        bridge->_comm_timeout++;
+        if (bridge->_comm_timeout > 20) {  // 20 ticks * 100ms = 2s
+            bridge->_comm_lost = true;
+        }
+
         vTaskDelay(pdMS_TO_TICKS(100));  // 10 fps
     }
     vTaskDelete(NULL);

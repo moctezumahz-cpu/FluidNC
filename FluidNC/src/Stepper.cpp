@@ -761,6 +761,11 @@ void Stepper::prep_buffer() {
             spindle->corner_check(prep.current_speed, pl_block->programmed_rate);
         }
 
+        // Poll spindle: monitoreo READY + errores durante corte
+        if (spindle) {
+            spindle->poll();
+        }
+
         // Update the appropriate planner and segment data.
         pl_block->millimeters = mm_remaining;
         prep.steps_remaining  = n_steps_remaining;

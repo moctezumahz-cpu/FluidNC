@@ -57,6 +57,9 @@ public:
     bool get_corner()     const { return _tel.corner; }
     bool get_collision()  const { return _tel.collision; }
     bool get_arc()        const { return _tel.arc_established; }
+    bool get_error()      const { return _tel.error; }
+    bool comm_lost()      const { return _comm_lost; }
+    void reset_comm()           { _comm_timeout = 0; _comm_lost = false; }
 
     // Corner detection (called from Stepper::prep_buffer)
     CornerConfig* corner_config() { return _corner; }
@@ -75,6 +78,10 @@ protected:
 
     TaskHandle_t _task = nullptr;
     bool _running = false;
+
+    // RS-485 communication timeout
+    volatile int  _comm_timeout = 0;   // ticks sin trama válida (1 tick = ~100ms)
+    volatile bool _comm_lost    = false;
 
     // Telemetry store (read by task, read from main)
     struct {
