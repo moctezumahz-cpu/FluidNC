@@ -9,13 +9,13 @@
 	Communication loop between FluidNC and THC-MCH via RS-485.
 	Sends config frame every 100ms, receives telemetry.
 	
-	Config YAML:
-	  serialthc:
-	    txd_pin: gpio.43
-	    rxd_pin: gpio.44
-	    re_pin: gpio.2      # RE/DE for RS-485 half-duplex
+	Config YAML (seccion raiz):
+	  SerialTHC:
+	    txd_pin: gpio.17
+	    rxd_pin: gpio.18
+	    re_pin: gpio.21      # RE/DE for RS-485 half-duplex
 	    baud: 19200
-	    air_pin: gpio.xx    # presostato opcional (HIGH = presion OK; sin pin no bloquea)
+	    air_pin: gpio.xx     # presostato opcional (HIGH = presion OK; sin pin no bloquea)
 	    rs485_timeout_ms: 2000
 	
 	Frame ESP -> THC (CSV + \n, 18 valores; el THC-MCH V5 lee SOLO [0..13]):
