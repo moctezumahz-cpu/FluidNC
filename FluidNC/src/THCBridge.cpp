@@ -1,6 +1,7 @@
 #include "THCBridge.h"
 #include "Logging.h"
 #include "Machine/MachineConfig.h"
+#include "Spindles/THCSpindle.h"  // get_ready_lost()/get_error_pin_active() para error_code()
 
 #include <HardwareSerial.h>   // Serial, Serial1, Serial2
 #include <string.h>
@@ -32,6 +33,11 @@ void THCBridge::init() {
     if (!_re_pin.undefined()) {
         _re_pin.setAttr(Pin::Attr::Output);
         _re_pin.off();  // receive mode
+    }
+
+    if (!_air_pin.undefined()) {
+        _air_pin.setAttr(Pin::Attr::Input);
+        log_info("THC Bridge: air_pin " << _air_pin.name() << " (presostato, HIGH = presion OK)");
     }
 
     if (_corner) {
@@ -73,6 +79,24 @@ void THCBridge::set_start_delay(int ms) {
 
 void THCBridge::set_start(bool on) {
     _params.start_virtual = on;
+}
+
+// ── Telemetria de estado ($THC/Status) ──
+
+bool THCBridge::air_ok() const {
+    if (_air_pin.undefined()) return true;  // sin pin configurado -> no bloquea, OK
+    return _air_pin.read() == Pin::On;      // HIGH = presion de aire OK
+}
+
+int THCBridge::error_code() const {
+    // 0=sin error, 1=comm lost RS-485, 2=colision, 3=bit error del THC,
+    // 4=pin ERROR del spindle, 5=READY perdido (spindle)
+    if (comm_lost()) return 1;
+    if (get_collision()) return 2;
+    if (get_error()) return 3;
+    if (_spindle && _spindle->get_error_pin_active()) return 4;
+    if (_spindle && _spindle->get_ready_lost()) return 5;
+    return 0;
 }
 
 // ── RS-485 half-duplex helpers ──

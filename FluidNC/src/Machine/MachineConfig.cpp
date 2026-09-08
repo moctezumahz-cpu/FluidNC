@@ -148,6 +148,11 @@ namespace Machine {
             _spindles.insert(_spindles.begin(), _thc_spindle);
         }
 
+        // Vincular THC spindle al bridge para telemetria de estado ($THC/Status, ER 4/5)
+        if (_thc && _thc_spindle) {
+            _thc->set_spindle(_thc_spindle);
+        }
+
         // Precaution in case the full spindle initialization does not happen
         // due to a configuration error
         spindle = _spindles[0];

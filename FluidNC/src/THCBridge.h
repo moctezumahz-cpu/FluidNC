@@ -26,6 +26,10 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
+namespace Spindles {
+    class THC;  // enlazado via set_spindle() para telemetria de error (ER 4/5)
+}
+
 class THCBridge : public Configuration::Configurable {
 public:
     THCBridge();
@@ -37,6 +41,7 @@ public:
         handler.item("re_pin", _re_pin);
         handler.item("baud", _baud, 2400, 115200);
         handler.item("uart_num", _uart_num, 1, 2);
+        handler.item("air_pin", _air_pin);  // presostato (opcional): HIGH = presion OK
         handler.section("corner", _corner);
     }
 
@@ -61,6 +66,12 @@ public:
     bool comm_lost()      const { return _comm_lost; }
     void reset_comm()           { _comm_timeout = 0; _comm_lost = false; }
 
+    // Estado para telemetria ($THC/Status)
+    bool get_start() const { return _params.start_virtual; }  // START pedido por el spindle (M3/M5)
+    bool air_ok() const;                                       // presion de aire OK
+    int  error_code() const;                                   // codigo numerico de error
+    void set_spindle(Spindles::THC* spindle) { _spindle = spindle; }
+
     // Corner detection (called from Stepper::prep_buffer)
     CornerConfig* corner_config() { return _corner; }
     void          corner_check(float actual_speed, float programmed_rate) {
@@ -71,10 +82,12 @@ protected:
     Pin _txd_pin;
     Pin _rxd_pin;
     Pin _re_pin;
+    Pin _air_pin;  // presostato opcional: HIGH = presion OK (sin pin -> siempre OK)
     int _baud = 19200;
     int _uart_num = 1;  // 0=Serial, 1=Serial1, 2=Serial2
 
     CornerConfig* _corner = nullptr;
+    Spindles::THC* _spindle = nullptr;  // enlazado desde MachineConfig (errores del spindle)
 
     TaskHandle_t _task = nullptr;
     bool _running = false;

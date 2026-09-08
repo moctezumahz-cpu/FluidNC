@@ -48,6 +48,10 @@ namespace Spindles {
         // Trigger de error: apaga todo y dispara alarm
         void trigger_error();
 
+        // Estado para telemetria del bridge ($THC/Status, ER 4/5)
+        bool get_ready_lost()       const { return _ready_lost; }
+        bool get_error_pin_active() const { return !_error_pin.undefined() && _error_pin.read() == Pin::On; }
+
         void group(Configuration::HandlerBase& handler) override {
             handler.item("start_pin", _start_pin);
             handler.item("ready_pin", _ready_pin);

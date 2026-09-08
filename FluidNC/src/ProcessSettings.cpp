@@ -27,6 +27,7 @@
 #include "FluidPath.h"
 
 #include <cstring>
+#include <cstdio>
 #include <map>
 #include <filesystem>
 
@@ -748,6 +749,27 @@ static Error setReportInterval(const char* value, WebUI::AuthenticationLevel aut
     return Error::Ok;
 }
 
+// $THC/Status — telemetria del THC-MCH HD (bridge RS-485)
+// Linea unica: ST:<0|1>,ES:<crudo>,ARC:<0|1>,AIR:<0|1>,ER:<n>,V:<voltaje 1 decimal>,Po:<contador>
+static Error show_thc_status(const char* value, WebUI::AuthenticationLevel auth_level, Channel& out) {
+    if (!config->_thc) {
+        log_to(out, "THC/Status: ", "bridge no configurado (seccion serialthc:)");
+        return Error::Ok;
+    }
+    THCBridge* thc = config->_thc;
+    char vbuf[16];
+    snprintf(vbuf, sizeof(vbuf), "%.1f", (double)thc->get_voltage());  // V: viene en voltios enteros
+    log_to(out, "",
+        "ST:" << (thc->get_start() ? 1 : 0)
+        << ",ES:" << thc->get_state()
+        << ",ARC:" << (thc->get_arc() ? 1 : 0)
+        << ",AIR:" << (thc->air_ok() ? 1 : 0)
+        << ",ER:" << thc->error_code()
+        << ",V:" << vbuf
+        << ",Po:" << thc->get_position());
+    return Error::Ok;
+}
+
 // Commands use the same syntax as Settings, but instead of setting or
 // displaying a persistent value, a command causes some action to occur.
 // That action could be anything, from displaying a run-time parameter
@@ -755,6 +777,7 @@ static Error setReportInterval(const char* value, WebUI::AuthenticationLevel aut
 // for decoding its own value string, if it needs one.
 void make_user_commands() {
     new UserCommand("GD", "GPIO/Dump", showGPIOs, anyState);
+    new UserCommand("THC", "THC/Status", show_thc_status, anyState);
 
     new UserCommand("CI", "Channel/Info", showChannelInfo, anyState);
     new UserCommand("XR", "Xmodem/Receive", xmodem_receive, notIdleOrAlarm);
