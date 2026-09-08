@@ -6,18 +6,30 @@
 /*
 	THC RS-485 Bridge
 	
-	Communication loop between FluidNC and THC-MCH HD via RS-485.
+	Communication loop between FluidNC and THC-MCH via RS-485.
 	Sends config frame every 100ms, receives telemetry.
 	
 	Config YAML:
-	  thc:
-	    uart:
-	      txd_pin: gpio.17
-	      rxd_pin: gpio.18
-	      re_pin: gpio.21    # RE/DE for RS-485 half-duplex
+	  serialthc:
+	    txd_pin: gpio.43
+	    rxd_pin: gpio.44
+	    re_pin: gpio.2      # RE/DE for RS-485 half-duplex
 	    baud: 19200
+	    air_pin: gpio.xx    # presostato opcional (HIGH = presion OK; sin pin no bloquea)
+	    rs485_timeout_ms: 2000
 	
-	Access telemetry from GCode/Macros via M100 or status report.
+	Frame ESP -> THC (CSV + \n, 18 valores; el THC-MCH V5 lee SOLO [0..13]):
+	  [0]  Vsetpoint         [1]  StartDelay       [2]  IHS
+	  [3]  VelocidadTHC      [4]  VelocidadProb    [5]  VelocidadMinTHC
+	  [6]  ProbeSense        [7]  ArrancaPlasma    [8]  Transfer
+	  [9]  ReturnUp          [10] THCEnable        [11] upVirtual
+	  [12] downVirtual       [13] startVirtual
+	  [14] invert_probe      [15] invert_ready     [16] invert_probe_enable
+	  [17] invert_dir        (reservados para THC HD futuro — el V5 los ignora)
+	
+	Telemetry THC -> ESP: claves V,VsP,Sd,IHS,ES,Str,Po,Dwn,Up,Rdy,Prb,Col (+ Err/Cor/Lim/Diag futuras).
+	
+	Access desde consola/GCode: $THC/Status (telemetria), $THC/Up=0|1, $THC/Down=0|1 (manual RS-485).
 */
 
 #include "Pin.h"
@@ -42,6 +54,7 @@ public:
         handler.item("baud", _baud, 2400, 115200);
         handler.item("uart_num", _uart_num, 1, 2);
         handler.item("air_pin", _air_pin);  // presostato (opcional): HIGH = presion OK
+        handler.item("rs485_timeout_ms", _rs485_timeout_ms, 200, 10000);  // sin trama valida en este tiempo -> comm_lost
         handler.section("corner", _corner);
     }
 
@@ -53,6 +66,8 @@ public:
     void set_ihs(int steps);
     void set_start_delay(int ms);
     void set_start(bool on);         // M3/M5 toggle
+    void set_up(bool on)   { _params.up_virtual = on; }    // $THC/Up  (manual RS-485, ES==0)
+    void set_down(bool on) { _params.down_virtual = on; }  // $THC/Down (manual RS-485, ES==0)
 
     // Telemetry readout
     int  get_voltage()    const { return _tel.voltage; }
@@ -85,6 +100,7 @@ protected:
     Pin _air_pin;  // presostato opcional: HIGH = presion OK (sin pin -> siempre OK)
     int _baud = 19200;
     int _uart_num = 1;  // 0=Serial, 1=Serial1, 2=Serial2
+    int _rs485_timeout_ms = 2000;  // timeout de comunicacion RS-485 (tick del task = 100ms)
 
     CornerConfig* _corner = nullptr;
     Spindles::THC* _spindle = nullptr;  // enlazado desde MachineConfig (errores del spindle)

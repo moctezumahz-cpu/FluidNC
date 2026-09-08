@@ -770,6 +770,38 @@ static Error show_thc_status(const char* value, WebUI::AuthenticationLevel auth_
     return Error::Ok;
 }
 
+// $THC/Up — subida manual del THC por RS-485 (up_virtual, solo actua con ES==0)
+static Error show_thc_up(const char* value, WebUI::AuthenticationLevel auth_level, Channel& out) {
+    if (!config->_thc) {
+        log_to(out, "THC/Up: ", "bridge no configurado (seccion serialthc:)");
+        return Error::Ok;
+    }
+    if (!value) {
+        log_to(out, "THC/Up: ", "uso: $THC/Up=1 subir | $THC/Up=0 soltar (solo con THC en reposo)");
+        return Error::Ok;
+    }
+    bool on = atoi(value) != 0;
+    config->_thc->set_up(on);
+    log_to(out, "THC/Up: ", (on ? "1 — subiendo (up_virtual)" : "0 — soltado"));
+    return Error::Ok;
+}
+
+// $THC/Down — bajada manual del THC por RS-485 (down_virtual, solo actua con ES==0)
+static Error show_thc_down(const char* value, WebUI::AuthenticationLevel auth_level, Channel& out) {
+    if (!config->_thc) {
+        log_to(out, "THC/Down: ", "bridge no configurado (seccion serialthc:)");
+        return Error::Ok;
+    }
+    if (!value) {
+        log_to(out, "THC/Down: ", "uso: $THC/Down=1 bajar | $THC/Down=0 soltar (solo con THC en reposo)");
+        return Error::Ok;
+    }
+    bool on = atoi(value) != 0;
+    config->_thc->set_down(on);
+    log_to(out, "THC/Down: ", (on ? "1 — bajando (down_virtual)" : "0 — soltado"));
+    return Error::Ok;
+}
+
 // Commands use the same syntax as Settings, but instead of setting or
 // displaying a persistent value, a command causes some action to occur.
 // That action could be anything, from displaying a run-time parameter
@@ -778,6 +810,8 @@ static Error show_thc_status(const char* value, WebUI::AuthenticationLevel auth_
 void make_user_commands() {
     new UserCommand("GD", "GPIO/Dump", showGPIOs, anyState);
     new UserCommand("THC", "THC/Status", show_thc_status, anyState);
+    new UserCommand("THC", "THC/Up", show_thc_up, anyState);
+    new UserCommand("THC", "THC/Down", show_thc_down, anyState);
 
     new UserCommand("CI", "Channel/Info", showChannelInfo, anyState);
     new UserCommand("XR", "Xmodem/Receive", xmodem_receive, notIdleOrAlarm);

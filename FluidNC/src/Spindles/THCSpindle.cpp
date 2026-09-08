@@ -6,6 +6,8 @@
 #include "../Machine/MachineConfig.h"
 #include "../Protocol.h"
 
+#include <esp32-hal.h>  // millis() para debounce de arc loss
+
 namespace Spindles {
 
     void THC::init() {
@@ -38,8 +40,11 @@ namespace Spindles {
 
         // Resetear flags de error
         _ready_lost       = false;
+        _air_lost         = false;
+        _ready_timeout    = false;
         _error_triggered  = false;
         _ready_was_high   = false;
+        _arc_loss_timer   = 0;
         _current_state    = SpindleState::Unknown;
 
         if (_speeds.size() == 0) {
@@ -51,7 +56,8 @@ namespace Spindles {
 
     void THC::config_message() {
         log_info("THC Spindle Start:" << _start_pin.name() << " Ready:" << _ready_pin.name()
-                                      << " Timeout:" << _pierce_timeout_ms << "ms");
+                                      << " PierceTimeout:" << _pierce_timeout_ms << "ms"
+                                      << " ArcLossDebounce:" << _arc_loss_debounce_ms << "ms");
     }
 
     void THC::setState(SpindleState state, SpindleSpeed speed) {
@@ -73,8 +79,11 @@ namespace Spindles {
             _start_pin.off();
             _current_state   = SpindleState::Disable;
             _ready_lost      = false;
+            _air_lost        = false;
+            _ready_timeout   = false;
             _error_triggered = false;
             _ready_was_high  = false;
+            _arc_loss_timer  = 0;
             return;
         }
 
@@ -94,8 +103,21 @@ namespace Spindles {
 
         // Reset flags para nuevo M3
         _ready_lost       = false;
+        _air_lost         = false;
+        _ready_timeout    = false;
         _error_triggered  = false;
         _ready_was_high   = false;
+        _arc_loss_timer   = 0;
+
+        // Interlock de aire: sin presion OK (presostato) NO se enciende START.
+        // Sin bridge o sin air_pin configurado -> air_ok() == true, no bloquea.
+        if (config->_thc && !config->_thc->air_ok()) {
+            log_error("THC: baja presion de aire — M3 bloqueado, START no encendido");
+            _air_lost        = true;
+            _current_state   = SpindleState::Disable;
+            trigger_error();
+            return;
+        }
 
         // M3: START al THC + notify bridge
         if (config->_thc) {
@@ -120,10 +142,11 @@ namespace Spindles {
             remaining -= 10;
         }
         if (remaining <= 0) {
-            log_warn("THC: READY timeout " << _pierce_timeout_ms << "ms — apagando START, queda esperando");
-            _start_pin.off();
-            // El spindle queda "activo" pero sin START — se queda en loop de espera
-            _current_state = SpindleState::Cw;
+            // Timeout sin READY: NO dejar el GCode avanzar sin arco — alarma y aborta.
+            log_error("THC: READY timeout " << _pierce_timeout_ms << "ms en M3 — sin arco, abortando");
+            _ready_timeout    = true;
+            _current_state    = SpindleState::Disable;
+            trigger_error();
             return;
         }
 
@@ -138,22 +161,41 @@ namespace Spindles {
         if (_current_state != SpindleState::Cw) return;
         if (_error_triggered) return;  // Ya en error
 
-        // 1. READY lost durante corte
-        if (_ready_was_high && _ready_pin.read() == Pin::Off) {
-            log_error("THC: READY lost during cut — plasma extinguished");
-            _ready_lost = true;
+        // 1. Interlock de aire durante el corte: si cae la presion, abortar ya
+        if (config->_thc && !config->_thc->air_ok()) {
+            log_error("THC: baja presion de aire durante el corte — abortando");
+            _air_lost = true;
             trigger_error();
             return;
         }
 
-        // 2. Error pin desde THC (error_pin = HIGH = error)
+        // 2. Arc loss: READY perdido durante corte, con debounce anti-EMI.
+        //    READY debe permanecer Off durante _arc_loss_debounce_ms antes de alarmar;
+        //    si vuelve a On antes de vencer, se cancela (ruido EMI del arco).
+        bool ready = _ready_pin.read() == Pin::On;
+        if (_ready_was_high && !ready) {
+            if (_arc_loss_timer == 0) {
+                _arc_loss_timer = millis();  // inicio del debounce
+            } else if ((millis() - _arc_loss_timer) >= (uint32_t)_arc_loss_debounce_ms) {
+                log_error("THC: READY lost during cut — plasma extinguished (debounce "
+                          << _arc_loss_debounce_ms << "ms)");
+                _ready_lost     = true;
+                _arc_loss_timer = 0;
+                trigger_error();
+                return;
+            }
+        } else {
+            _arc_loss_timer = 0;  // READY On (o nunca afirmado) → cancelar debounce
+        }
+
+        // 3. Error pin desde THC (error_pin = HIGH = error)
         if (!_error_pin.undefined() && _error_pin.read() == Pin::On) {
             log_error("THC: error pin asserted by THC");
             trigger_error();
             return;
         }
 
-        // 3. Error desde RS-485 (campo Err del THC)
+        // 4. Error desde RS-485 (campo Err del THC)
         if (config->_thc) {
             if (config->_thc->get_error()) {
                 log_error("THC: error reported by THC-MCH (Err=1)");
@@ -161,7 +203,7 @@ namespace Spindles {
                 return;
             }
             if (config->_thc->comm_lost()) {
-                log_error("THC: RS-485 communication lost (2s timeout)");
+                log_error("THC: RS-485 communication lost — abortando");
                 trigger_error();
                 return;
             }

@@ -1,7 +1,7 @@
 #include "THCBridge.h"
 #include "Logging.h"
 #include "Machine/MachineConfig.h"
-#include "Spindles/THCSpindle.h"  // get_ready_lost()/get_error_pin_active() para error_code()
+#include "Spindles/THCSpindle.h"  // get_ready_lost()/get_error_pin_active()/get_air_lost()/get_ready_timeout() para error_code()
 
 #include <HardwareSerial.h>   // Serial, Serial1, Serial2
 #include <string.h>
@@ -50,6 +50,7 @@ void THCBridge::init() {
     );
 
     log_info("THC Bridge: UART" << _uart_num << " @" << _baud << " RS-485");
+    log_info("THC Bridge: rs485_timeout_ms=" << _rs485_timeout_ms << " (" << (_rs485_timeout_ms / 100) << " ticks de 100ms)");
 }
 
 void THCBridge::deinit() {
@@ -89,13 +90,17 @@ bool THCBridge::air_ok() const {
 }
 
 int THCBridge::error_code() const {
+    // Tabla de errores:
     // 0=sin error, 1=comm lost RS-485, 2=colision, 3=bit error del THC,
-    // 4=pin ERROR del spindle, 5=READY perdido (spindle)
+    // 4=pin ERROR del spindle, 5=arc loss (READY perdido en corte),
+    // 6=baja presion de aire, 7=READY timeout en M3 (sin arco)
     if (comm_lost()) return 1;
     if (get_collision()) return 2;
     if (get_error()) return 3;
     if (_spindle && _spindle->get_error_pin_active()) return 4;
     if (_spindle && _spindle->get_ready_lost()) return 5;
+    if (_spindle && _spindle->get_air_lost()) return 6;
+    if (_spindle && _spindle->get_ready_timeout()) return 7;
     return 0;
 }
 
@@ -134,10 +139,14 @@ String THCBridge::rs485_read_line() {
 // ── Frame protocol ──
 
 void THCBridge::send_frame() {
-    // Build 19-value frame matching THC-MCH HD protocol
+    // Frame ESP -> THC (CSV + \n). El THC-MCH V5 parsea SOLO values[0..13] en este orden:
+    //   [0]Vsetpoint [1]StartDelay [2]IHS [3]VelocidadTHC [4]VelocidadProb [5]VelocidadMinTHC
+    //   [6]ProbeSense [7]ArrancaPlasma [8]Transfer [9]ReturnUp [10]THCEnable
+    //   [11]upVirtual [12]downVirtual [13]startVirtual
+    // Los campos invert_* (reservados THC HD futuro) se mandan después en [14..17]; el V5 los ignora.
     char buf[128];
     snprintf(buf, sizeof(buf),
-        "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,0,%d,%d,%d,%d,%d,%d,%d,%d",
+        "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
         _params.vsetpoint,
         _params.start_delay,
         _params.ihs,
@@ -149,13 +158,13 @@ void THCBridge::send_frame() {
         _params.transfer ? 1 : 0,
         _params.return_up ? 1 : 0,
         _params.thc_enable ? 1 : 0,
+        _params.up_virtual ? 1 : 0,
+        _params.down_virtual ? 1 : 0,
+        _params.start_virtual ? 1 : 0,
         _params.invert_probe ? 1 : 0,
         _params.invert_ready ? 1 : 0,
         _params.invert_probe_enable ? 1 : 0,
-        _params.invert_dir ? 1 : 0,
-        _params.up_virtual ? 1 : 0,
-        _params.down_virtual ? 1 : 0,
-        _params.start_virtual ? 1 : 0
+        _params.invert_dir ? 1 : 0
     );
 
     rs485_write((uint8_t*)buf, strlen(buf));
@@ -231,9 +240,10 @@ void THCBridge::task_loop(void* arg) {
             bridge->parse_telemetry(line.c_str());
         }
 
-        // RS-485 timeout: si pasan ~2s sin trama válida, marcar pérdida
+        // RS-485 timeout: si pasa _rs485_timeout_ms sin trama válida, marcar pérdida
         bridge->_comm_timeout++;
-        if (bridge->_comm_timeout > 20) {  // 20 ticks * 100ms = 2s
+        int limit_ticks = bridge->_rs485_timeout_ms / 100;  // 1 tick = 100ms
+        if (bridge->_comm_timeout > limit_ticks) {
             bridge->_comm_lost = true;
         }
 
