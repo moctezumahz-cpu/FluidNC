@@ -44,23 +44,19 @@ axes:
         direction_pin: gpio.3
         disable_pin: NO_PIN
 
-# Bridge RS-485 ESP32 <-> THC-MCH (seccion raiz, nombre que reconoce el firmware nuevo)
 SerialTHC:
   txd_pin: gpio.17
   rxd_pin: gpio.18
-  re_pin: gpio.21        # RE/DE RS-485 half-duplex
+  re_pin: gpio.21
   baud: 19200
-  uart_num: 1            # 1 = Serial1
-  # air_pin: gpio.N     # presostato opcional: HIGH = presion OK (sin pin = siempre OK, no bloquea)
+  uart_num: 1
 
-# Spindle THC: M3 enciende START y espera READY (seccion raiz, nombre que reconoce el firmware nuevo)
 THCSpindle:
   start_pin: gpio.2
   ready_pin: gpio.39:pd
-  # error_pin: gpio.N   # opto ERROR del THC (opcional)
-  corner_pin: gpio.38   # salida anti-dive CORNER hacia el THC
-  threshold_corner: 70  # % de velocidad bajo el cual activa corner
-  pierce_timeout_ms: 5000   # espera de READY; subir en ambiente ruidoso (max 30000)
+  corner_pin: gpio.38
+  threshold_corner: 70
+  pierce_timeout_ms: 5000
 
 probe:
   pin: NO_PIN

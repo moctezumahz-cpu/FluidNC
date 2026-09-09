@@ -1,0 +1,137 @@
+name: MCHPlasmaCNC-01
+board: YD-ESP32-23-N16R8
+
+network:
+  sta:
+    ssid: "your_wifi_ssid"
+    password: "your_wifi_password"
+  ap:
+    ssid: "MCHPlasmaCNC"
+    password: "12345678"
+
+stepping:
+  engine: RMT
+  idle_ms: 250
+  pulse_us: 4
+  dir_delay_us: 1
+  disable_delay_us: 0
+
+axes:
+  shared_stepper_disable_pin: gpio.42:low
+  x:
+    steps_per_mm: 80.0
+    max_rate_mm_per_min: 6000.0
+    acceleration_mm_per_sec2: 500.0
+    max_travel_mm: 1500.0
+    soft_limits: true
+    homing:
+      direction: neg
+      feed_mm_per_min: 200.0
+      seek_mm_per_min: 1200.0
+      pulloff_mm: 5.0
+    motor0:
+      tmc_2209:
+        uart:
+          txd_pin: gpio.38
+          rxd_pin: gpio.38
+        step_pin: gpio.41
+        direction_pin: gpio.40
+        disable_pin: NO_PIN
+        r_sense_ohms: 0.110
+        run_current: 0.800
+        homing_current: 0.500
+        hold_current: 0.400
+        stallguard:
+          value: 60
+          diag_pin: gpio.14
+
+  y:
+    steps_per_mm: 80.0
+    max_rate_mm_per_min: 6000.0
+    acceleration_mm_per_sec2: 500.0
+    max_travel_mm: 1200.0
+    soft_limits: true
+    homing:
+      direction: neg
+      feed_mm_per_min: 200.0
+      seek_mm_per_min: 1200.0
+      pulloff_mm: 5.0
+    motor0:
+      tmc_2209:
+        uart:
+          txd_pin: gpio.38
+          rxd_pin: gpio.38
+        step_pin: gpio.39
+        direction_pin: gpio.45
+        disable_pin: NO_PIN
+        r_sense_ohms: 0.110
+        run_current: 0.800
+        homing_current: 0.500
+        hold_current: 0.400
+        stallguard:
+          value: 60
+          diag_pin: gpio.14
+
+  z:
+    steps_per_mm: 800.0
+    max_rate_mm_per_min: 1500.0
+    acceleration_mm_per_sec2: 200.0
+    max_travel_mm: 200.0
+    soft_limits: true
+    homing:
+      direction: neg
+      feed_mm_per_min: 100.0
+      seek_mm_per_min: 500.0
+      pulloff_mm: 3.0
+    motor0:
+      tmc_2209:
+        uart:
+          txd_pin: gpio.38
+          rxd_pin: gpio.38
+        step_pin: gpio.47
+        direction_pin: gpio.21
+        disable_pin: NO_PIN
+        r_sense_ohms: 0.110
+        run_current: 0.600
+        homing_current: 0.350
+        hold_current: 0.300
+        stallguard:
+          value: 80
+          diag_pin: gpio.14
+
+probe:
+  pin: NO_PIN
+
+limits:
+  pin: gpio.46:pu
+  home: gpio.3:pu
+  homing_sv2: false
+
+control:
+  safety_door_pin: NO_PIN
+  feed_hold_pin: NO_PIN
+  cycle_start_pin: NO_PIN
+  reset_pin: NO_PIN
+  estop_pin: gpio.9:pu
+
+SDCard:
+  spi:
+    cs_pin: gpio.13
+    mosi_pin: gpio.12
+    miso_pin: gpio.10
+    sclk_pin: gpio.11
+
+SerialTHC:
+  txd_pin: gpio.43
+  rxd_pin: gpio.44
+  re_pin: gpio.2
+  baud: 19200
+  uart_num: 1
+
+THCSpindle:
+  start_pin: gpio.4
+  corner_pin: gpio.5
+  ready_pin: gpio.8:pd
+  error_pin: gpio.18:pu
+  pierce_timeout_ms: 30000
+  threshold_corner: 70
