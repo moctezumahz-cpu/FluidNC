@@ -50,6 +50,12 @@ namespace MotorDrivers {
         tmc2209->microsteps(usteps);
         tmc2209->pdn_disable(true);  // powerdown pin is disabled. uses ihold.
 
+        // Sentido de giro en el propio driver (bit shaft del GCONF). Así se puede
+        // invertir UNO de los dos motores que comparten el canal de pulsos, que es
+        // justo el caso de los motores gemelos del pórtico: la dirección es una sola.
+        tmc2209->shaft(_invert_rotation);
+        log_debug(axisName() << " Invert rotation: " << _invert_rotation);
+
         switch (_mode) {
             case TrinamicMode ::StealthChop:
                 log_debug(axisName() << " StealthChop");

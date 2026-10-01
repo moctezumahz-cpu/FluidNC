@@ -30,6 +30,11 @@ namespace MotorDrivers {
             handler.item("stallguard", _stallguard, 0, 255);
             handler.item("stallguard_debug", _stallguardDebugMode);
             handler.item("toff_coolstep", _toff_coolstep, 2, 15);
+            // Sentido de giro dentro del propio driver (bit "shaft" del GCONF).
+            // Para los motores que comparten el mismo canal de pulsos (pórticos de
+            // dos motores), la señal de dirección es una sola: aquí se invierte
+            // UNO de los dos sin tocar el cableado ni el G-code.
+            handler.item("invert_rotation", _invert_rotation);
         }
 
         // Name of the configurable. Must match the name registered in the cpp file.
@@ -37,6 +42,9 @@ namespace MotorDrivers {
 
     private:
         TMC2209Stepper* tmc2209 = nullptr;
+
+        // Invierte el sentido de giro por el registro del driver (GCONF.shaft).
+        bool _invert_rotation = false;
 
         bool test();
         void set_registers(bool isHoming);

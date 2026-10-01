@@ -1,6 +1,6 @@
 name: MCHPlasmaCNC-01
 board: YD-ESP32-23-N16R8
-meta: MCH-FLUID-PLASMA R3 - X 1 motor, Y 2 motores gemelos en un canal, A el driver libre. Sin Z (la altura es del ArcPilot)
+meta: MCH-FLUID-PLASMA R3 - X 1 motor, Y 2 motores gemelos en un canal, A el driver libre. Home en gpio.3, limit en gpio.46. Sin Z (la altura es del ArcPilot)
 
 network:
   sta:
@@ -34,11 +34,14 @@ axes:
     max_travel_mm: 1500.0
     soft_limits: true
     homing:
-      direction: neg
+      positive_direction: false
       feed_mm_per_min: 200.0
       seek_mm_per_min: 1200.0
-      pulloff_mm: 5.0
     motor0:
+      limit_neg_pin: gpio.3:pu
+      limit_pos_pin: gpio.46:pu
+      hard_limits: true
+      pulloff_mm: 5.0
       tmc_2209:
         uart_num: 1
         addr: 0
@@ -51,6 +54,7 @@ axes:
         microsteps: 16
         stallguard: 60
         stallguard_debug: false
+        invert_rotation: false
 
   y:
     steps_per_mm: 80.0
@@ -59,11 +63,14 @@ axes:
     max_travel_mm: 1200.0
     soft_limits: true
     homing:
-      direction: neg
+      positive_direction: false
       feed_mm_per_min: 200.0
       seek_mm_per_min: 1200.0
-      pulloff_mm: 5.0
     motor0:
+      limit_neg_pin: gpio.3:pu
+      limit_pos_pin: gpio.46:pu
+      hard_limits: true
+      pulloff_mm: 5.0
       tmc_2209:
         uart_num: 1
         addr: 1
@@ -76,6 +83,7 @@ axes:
         microsteps: 16
         stallguard: 60
         stallguard_debug: false
+        invert_rotation: false
     motor1:
       tmc_2209:
         uart_num: 1
@@ -89,6 +97,7 @@ axes:
         microsteps: 16
         stallguard: 60
         stallguard_debug: false
+        invert_rotation: false
 
   a:
     steps_per_mm: 100.0
@@ -109,14 +118,10 @@ axes:
         microsteps: 16
         stallguard: 60
         stallguard_debug: false
+        invert_rotation: false
 
 probe:
   pin: NO_PIN
-
-limits:
-  pin: gpio.46:pu
-  home: gpio.3:pu
-  homing_sv2: false
 
 control:
   safety_door_pin: NO_PIN
