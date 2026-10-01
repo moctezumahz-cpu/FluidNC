@@ -130,12 +130,14 @@ control:
   reset_pin: NO_PIN
   estop_pin: gpio.9:pu
 
-SDCard:
-  spi:
-    cs_pin: gpio.13
-    mosi_pin: gpio.12
-    miso_pin: gpio.10
-    sclk_pin: gpio.11
+spi:
+  miso_pin: gpio.10
+  mosi_pin: gpio.12
+  sck_pin: gpio.11
+
+sdcard:
+  cs_pin: gpio.13
+  card_detect_pin: NO_PIN
 
 SerialTHC:
   txd_pin: gpio.43
