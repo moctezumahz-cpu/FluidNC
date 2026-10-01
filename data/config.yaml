@@ -140,8 +140,8 @@ sdcard:
   card_detect_pin: NO_PIN
 
 SerialTHC:
-  txd_pin: gpio.43
-  rxd_pin: gpio.44
+  txd_pin: gpio.44
+  rxd_pin: gpio.43
   re_pin: gpio.2
   baud: 19200
   uart_num: 1
