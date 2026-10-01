@@ -1,5 +1,6 @@
 name: MCHPlasmaCNC-01
 board: YD-ESP32-23-N16R8
+meta: MCH-FLUID-PLASMA R3 - TMC2209 addr X=0 Y=2 Z=3
 
 network:
   sta:
@@ -16,6 +17,14 @@ stepping:
   dir_delay_us: 1
   disable_delay_us: 0
 
+uart1:
+  txd_pin: gpio.38
+  rxd_pin: gpio.38
+  rts_pin: NO_PIN
+  cts_pin: NO_PIN
+  baud: 115200
+  mode: 8N1
+
 axes:
   shared_stepper_disable_pin: gpio.42:low
   x:
@@ -31,19 +40,17 @@ axes:
       pulloff_mm: 5.0
     motor0:
       tmc_2209:
-        uart:
-          txd_pin: gpio.38
-          rxd_pin: gpio.38
+        uart_num: 1
+        addr: 0
         step_pin: gpio.41
         direction_pin: gpio.40
         disable_pin: NO_PIN
         r_sense_ohms: 0.110
-        run_current: 0.800
-        homing_current: 0.500
-        hold_current: 0.400
-        stallguard:
-          value: 60
-          diag_pin: gpio.14
+        run_amps: 0.800
+        hold_amps: 0.400
+        microsteps: 16
+        stallguard: 60
+        stallguard_debug: false
 
   y:
     steps_per_mm: 80.0
@@ -58,19 +65,17 @@ axes:
       pulloff_mm: 5.0
     motor0:
       tmc_2209:
-        uart:
-          txd_pin: gpio.38
-          rxd_pin: gpio.38
+        uart_num: 1
+        addr: 2
         step_pin: gpio.39
         direction_pin: gpio.45
         disable_pin: NO_PIN
         r_sense_ohms: 0.110
-        run_current: 0.800
-        homing_current: 0.500
-        hold_current: 0.400
-        stallguard:
-          value: 60
-          diag_pin: gpio.14
+        run_amps: 0.800
+        hold_amps: 0.400
+        microsteps: 16
+        stallguard: 60
+        stallguard_debug: false
 
   z:
     steps_per_mm: 800.0
@@ -85,19 +90,17 @@ axes:
       pulloff_mm: 3.0
     motor0:
       tmc_2209:
-        uart:
-          txd_pin: gpio.38
-          rxd_pin: gpio.38
+        uart_num: 1
+        addr: 3
         step_pin: gpio.47
         direction_pin: gpio.21
         disable_pin: NO_PIN
         r_sense_ohms: 0.110
-        run_current: 0.600
-        homing_current: 0.350
-        hold_current: 0.300
-        stallguard:
-          value: 80
-          diag_pin: gpio.14
+        run_amps: 0.600
+        hold_amps: 0.300
+        microsteps: 16
+        stallguard: 80
+        stallguard_debug: false
 
 probe:
   pin: NO_PIN
@@ -135,4 +138,3 @@ THCSpindle:
   error_pin: gpio.18:pu
   pierce_timeout_ms: 30000
   threshold_corner: 70
-
