@@ -6,7 +6,8 @@
 /*
     THC Spindle — Torch Height Controller interface for plasma cutting.
     
-    M3 → START pin HIGH, espera READY del THC (obligatorio)
+    M3 → START pin HIGH, sigue sin esperar READY del THC (04-oct-2026, pedido de Moc:
+         la tarjeta del THC es opcional, el M3 no bloquea ni aborta si no da READY)
     M5 → START pin LOW
     
     También maneja el corner detection para anti-dive:
@@ -17,7 +18,7 @@
 
     Manejo de errores:
     - M3 sin aire (presostato): interlock — START no se enciende, alarma (air_lost)
-    - M3 sin READY tras pierce_timeout_ms: alarma (ready_timeout)
+    - M3 sin READY: ya NO aborta (04-oct-2026); READY es opcional, no se espera
     - READY lost durante corte (arc loss) con debounce anti-EMI arc_loss_debounce_ms
     - error_pin: entrada desde THC, HIGH = error
     - poll() se llama desde Stepper::prep_buffer() para monitoreo periódico

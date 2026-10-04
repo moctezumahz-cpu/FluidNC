@@ -125,33 +125,40 @@ namespace Spindles {
         }
         _start_pin.on();
 
-        // Esperar READY del THC con timeout
-        int remaining = _pierce_timeout_ms;
-        while (remaining > 0) {
-            if (sys.abort) {
-                _start_pin.off();
-                _current_state = SpindleState::Disable;
-                return;
-            }
-            if (_ready_pin.read() == Pin::On) {
-                log_info("THC: READY after " << (_pierce_timeout_ms - remaining) << "ms");
-                break;
-            }
-            protocol_execute_realtime();
-            vTaskDelay(pdMS_TO_TICKS(10));
-            remaining -= 10;
-        }
-        if (remaining <= 0) {
-            // Timeout sin READY: NO dejar el GCode avanzar sin arco — alarma y aborta.
-            log_error("THC: READY timeout " << _pierce_timeout_ms << "ms en M3 — sin arco, abortando");
-            _ready_timeout    = true;
-            _current_state    = SpindleState::Disable;
-            trigger_error();
-            return;
-        }
+        // ── 04-oct-2026 (pedido de Moc): el M3 YA NO espera el READY de la tarjeta del THC ──
+        // «Ahorita el fluidnc cuando corre espera la tarjeta del thc, solo quítale eso».
+        // Aquí había un while() que esperaba READY hasta _pierce_timeout_ms (5 s) y, si la
+        // tarjeta no estaba, abortaba el M3 con error (ER 7). Se QUITÓ a propósito: al dar M3
+        // se levanta START y se sigue de una, sin bloquear ni abortar por falta de READY, para
+        // poder correr la mesa sin la tarjeta del THC conectada.
+        //
+        // El monitoreo de PÉRDIDA DE ARCO sigue vivo en poll(): ahí se detecta que READY
+        // estuvo en alto y luego cayó durante el corte (debounce _arc_loss_debounce_ms). El
+        // "latch" de _ready_was_high se hace ahora dentro de poll() al primer READY On, en vez
+        // de aquí — así, sin tarjeta (READY nunca alto) NO hay falso arc loss, y con tarjeta la
+        // detección de pérdida de arco queda igual.
+        //
+        // CÓMO REGRESARLO (bloque original, commit 14f4ffb5): reintroducir ANTES de
+        // `_current_state = SpindleState::Cw;` el while de espera + su timeout/aborto:
+        //     int remaining = _pierce_timeout_ms;
+        //     while (remaining > 0) {
+        //         if (sys.abort) { _start_pin.off(); _current_state = SpindleState::Disable; return; }
+        //         if (_ready_pin.read() == Pin::On) { log_info("THC: READY after " << (_pierce_timeout_ms - remaining) << "ms"); break; }
+        //         protocol_execute_realtime();
+        //         vTaskDelay(pdMS_TO_TICKS(10));
+        //         remaining -= 10;
+        //     }
+        //     if (remaining <= 0) {
+        //         log_error("THC: READY timeout " << _pierce_timeout_ms << "ms en M3 — sin arco, abortando");
+        //         _ready_timeout = true; _current_state = SpindleState::Disable; trigger_error(); return;
+        //     }
+        // NOTA: mientras esté quitada la espera, `_ready_timeout` (ER 7 de $THC/Status) queda
+        // siempre en false. El flag, su getter y get_ready_timeout() se dejan intactos para no
+        // romper THCBridge (error_code() lo consulta pero nunca se afirma).
 
-        // READY recibido — entramos en modo corte
-        _ready_was_high  = true;
+        log_info("THC: M3 sin espera de READY (tarjeta opcional) — START arrancado, siguiendo");
+
+        // Entramos en modo corte. _ready_was_high lo arma poll() al primer READY On.
         _current_state   = SpindleState::Cw;
     }
 
@@ -172,7 +179,13 @@ namespace Spindles {
         // 2. Arc loss: READY perdido durante corte, con debounce anti-EMI.
         //    READY debe permanecer Off durante _arc_loss_debounce_ms antes de alarmar;
         //    si vuelve a On antes de vencer, se cancela (ruido EMI del arco).
+        //    04-oct-2026: el "latch" _ready_was_high se arma AQUÍ al primer READY On, ya que el
+        //    M3 dejó de esperar READY. Sin tarjeta (READY nunca On) el latch nunca se arma → no
+        //    hay falso arc loss; con tarjeta, en cuanto READY sube se vigila su caída igual que antes.
         bool ready = _ready_pin.read() == Pin::On;
+        if (ready) {
+            _ready_was_high = true;
+        }
         if (_ready_was_high && !ready) {
             if (_arc_loss_timer == 0) {
                 _arc_loss_timer = millis();  // inicio del debounce
