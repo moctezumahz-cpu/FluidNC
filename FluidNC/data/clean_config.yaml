@@ -1,69 +1,137 @@
-board: YD-ESP32-S3
-name: FluidPlasma MCH
-meta: THC-MCH HD Plasma Controller
+name: MCHPlasmaCNC-01
+board: YD-ESP32-23-N16R8
+meta: MCH-FLUID-PLASMA R3 con los pines del netlist - X un motor, Y dos motores gemelos sobre el mismo canal del cobre (ZS/ZD = gpio.47/21), A el driver libre (YS/YD = gpio.39/45), home gpio.3 y limit gpio.46 (una sola cadena para todos los ejes), topes INVERTIDOS (:low) para pruebas en banco. Sin Z - la altura la lleva el ArcPilot. THC DESHABILITADO (04-oct-2026): la consola usa gpio.43/44 y esos son las redes del RS-485.
 
 stepping:
   engine: RMT
-  idle_ms: 255
+  idle_ms: 250
   pulse_us: 4
-  dir_delay_us: 0
+  dir_delay_us: 1
+  disable_delay_us: 0
+
+uart1:
+  txd_pin: gpio.38
+  rxd_pin: gpio.38
+  rts_pin: NO_PIN
+  cts_pin: NO_PIN
+  baud: 115200
+  mode: 8N1
 
 axes:
-  shared_stepper_disable_pin: NO_PIN
+  shared_stepper_disable_pin: gpio.42:low
   x:
-    steps_per_mm: 250.0
-    max_rate_mm_per_min: 5000.0
+    steps_per_mm: 80.0
+    max_rate_mm_per_min: 6000.0
     acceleration_mm_per_sec2: 500.0
-    max_travel_mm: 1000.0
-    soft_limits: false
+    max_travel_mm: 1500.0
+    soft_limits: true
+    homing:
+      positive_direction: false
+      feed_mm_per_min: 200.0
+      seek_mm_per_min: 1200.0
     motor0:
-      stepstick:
-        step_pin: gpio.5
-        direction_pin: gpio.6
+      limit_neg_pin: gpio.3:low:pu
+      limit_pos_pin: gpio.46:low:pu
+      hard_limits: true
+      pulloff_mm: 5.0
+      tmc_2209:
+        uart_num: 1
+        addr: 0
+        step_pin: gpio.41
+        direction_pin: gpio.40
         disable_pin: NO_PIN
+        r_sense_ohms: 0.110
+        run_amps: 0.800
+        hold_amps: 0.400
+        microsteps: 16
+        stallguard: 60
+        stallguard_debug: false
+        invert_rotation: false
+
   y:
-    steps_per_mm: 250.0
-    max_rate_mm_per_min: 5000.0
+    steps_per_mm: 80.0
+    max_rate_mm_per_min: 6000.0
     acceleration_mm_per_sec2: 500.0
-    max_travel_mm: 1000.0
-    soft_limits: false
+    max_travel_mm: 1200.0
+    soft_limits: true
+    homing:
+      positive_direction: false
+      feed_mm_per_min: 200.0
+      seek_mm_per_min: 1200.0
     motor0:
-      stepstick:
-        step_pin: gpio.7
-        direction_pin: gpio.8
+      limit_neg_pin: gpio.3:low:pu
+      limit_pos_pin: gpio.46:low:pu
+      hard_limits: true
+      pulloff_mm: 5.0
+      tmc_2209:
+        uart_num: 1
+        addr: 1
+        step_pin: gpio.47
+        direction_pin: gpio.21
         disable_pin: NO_PIN
-  z:
-    steps_per_mm: 1000.0
-    max_rate_mm_per_min: 5000.0
+        r_sense_ohms: 0.110
+        run_amps: 0.800
+        hold_amps: 0.400
+        microsteps: 16
+        stallguard: 60
+        stallguard_debug: false
+        invert_rotation: false
+    motor1:
+      tmc_2209:
+        uart_num: 1
+        addr: 3
+        step_pin: gpio.48
+        disable_pin: NO_PIN
+        r_sense_ohms: 0.110
+        run_amps: 0.800
+        hold_amps: 0.400
+        microsteps: 16
+        stallguard: 60
+        stallguard_debug: false
+        invert_rotation: false
+
+  a:
+    steps_per_mm: 100.0
+    max_rate_mm_per_min: 3000.0
     acceleration_mm_per_sec2: 200.0
-    max_travel_mm: 200.0
+    max_travel_mm: 10000.0
     soft_limits: false
     motor0:
-      stepstick:
-        step_pin: gpio.16
-        direction_pin: gpio.3
+      tmc_2209:
+        uart_num: 1
+        addr: 2
+        step_pin: gpio.39
+        direction_pin: gpio.45
         disable_pin: NO_PIN
-
-SerialTHC:
-  txd_pin: gpio.17
-  rxd_pin: gpio.18
-  re_pin: gpio.21
-  baud: 19200
-  uart_num: 1
-
-THCSpindle:
-  start_pin: gpio.2
-  ready_pin: gpio.39:pd
-  corner_pin: gpio.38
-  threshold_corner: 70
-  pierce_timeout_ms: 5000
+        r_sense_ohms: 0.110
+        run_amps: 0.800
+        hold_amps: 0.400
+        microsteps: 16
+        stallguard: 60
+        stallguard_debug: false
+        invert_rotation: false
 
 probe:
   pin: NO_PIN
 
-coolant:
-  mist_pin: NO_PIN
-  flood_pin: NO_PIN
+control:
+  safety_door_pin: NO_PIN
+  feed_hold_pin: NO_PIN
+  cycle_start_pin: NO_PIN
+  reset_pin: NO_PIN
+  estop_pin: gpio.9:pu
 
-start:
-  must_home: false
+spi:
+  miso_pin: gpio.10
+  mosi_pin: gpio.12
+  sck_pin: gpio.11
+
+sdcard:
+  cs_pin: gpio.13
+  card_detect_pin: NO_PIN
+
+user_outputs:
+  digital0_pin: gpio.6
+  digital1_pin: gpio.7
+  digital2_pin: gpio.15
+  digital3_pin: gpio.16

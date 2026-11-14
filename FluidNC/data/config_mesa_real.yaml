@@ -1,14 +1,6 @@
 name: MCHPlasmaCNC-01
 board: YD-ESP32-23-N16R8
-meta: MCH-FLUID-PLASMA R3 - X 1 motor, Y 2 motores gemelos en un canal, A el driver libre. Home en gpio.3, limit en gpio.46. Sin Z (la altura es del ArcPilot)
-
-network:
-  sta:
-    ssid: "your_wifi_ssid"
-    password: "your_wifi_password"
-  ap:
-    ssid: "MCHPlasmaCNC"
-    password: "12345678"
+meta: MCH-FLUID-PLASMA R3 con los pines del netlist - X un motor, Y dos motores gemelos sobre el mismo canal del cobre (ZS/ZD = gpio.47/21), A el driver libre (YS/YD = gpio.39/45), home gpio.3 y limit gpio.46 (una sola cadena para todos los ejes), topes INVERTIDOS (:low) para pruebas en banco. Sin Z - la altura la lleva el ArcPilot. THC DESHABILITADO (04-oct-2026): la consola usa gpio.43/44 y esos son las redes del RS-485.
 
 stepping:
   engine: RMT
@@ -38,8 +30,8 @@ axes:
       feed_mm_per_min: 200.0
       seek_mm_per_min: 1200.0
     motor0:
-      limit_neg_pin: gpio.3:pu
-      limit_pos_pin: gpio.46:pu
+      limit_neg_pin: gpio.3:low:pu
+      limit_pos_pin: gpio.46:low:pu
       hard_limits: true
       pulloff_mm: 5.0
       tmc_2209:
@@ -67,8 +59,8 @@ axes:
       feed_mm_per_min: 200.0
       seek_mm_per_min: 1200.0
     motor0:
-      limit_neg_pin: gpio.3:pu
-      limit_pos_pin: gpio.46:pu
+      limit_neg_pin: gpio.3:low:pu
+      limit_pos_pin: gpio.46:low:pu
       hard_limits: true
       pulloff_mm: 5.0
       tmc_2209:
@@ -88,8 +80,7 @@ axes:
       tmc_2209:
         uart_num: 1
         addr: 3
-        step_pin: gpio.47
-        direction_pin: gpio.21
+        step_pin: gpio.48
         disable_pin: NO_PIN
         r_sense_ohms: 0.110
         run_amps: 0.800
@@ -139,17 +130,8 @@ sdcard:
   cs_pin: gpio.13
   card_detect_pin: NO_PIN
 
-SerialTHC:
-  txd_pin: gpio.44
-  rxd_pin: gpio.43
-  re_pin: gpio.2
-  baud: 19200
-  uart_num: 1
-
-THCSpindle:
-  start_pin: gpio.4
-  corner_pin: gpio.5
-  ready_pin: gpio.8:pd
-  error_pin: gpio.18:pu
-  pierce_timeout_ms: 30000
-  threshold_corner: 70
+user_outputs:
+  digital0_pin: gpio.6
+  digital1_pin: gpio.7
+  digital2_pin: gpio.15
+  digital3_pin: gpio.16

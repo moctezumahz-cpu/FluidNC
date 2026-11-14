@@ -79,7 +79,14 @@ namespace Pins {
         Assert(index < nGPIOPins, "Pin number is greater than max %d", nGPIOPins - 1);
         Assert(_capabilities != PinCapabilities::Reserved, "Unusable GPIO");
         Assert(_capabilities != PinCapabilities::None, "Unavailable GPIO");
-        Assert(!_claimed[index], "Pin is already used.");
+        // MCH 03-oct-2026: en la MCH-FLUID-PLASMA R3 el mismo GPIO SI se usa a
+        // proposito mas de una vez (los dos motores gemelos de Y comparten el
+        // canal de pulsos ZS/ZD, y la cadena de home/limits es una sola para
+        // todos los ejes). Antes esto era Assert y tumbaba la config con 152.
+        // Ahora solo se avisa; el pin se reclama igual (idempotente).
+        if (_claimed[index]) {
+            log_warn("GPIO " << int(index) << " se usa mas de una vez en la configuracion");
+        }
 
         // User defined pin capabilities
         for (auto opt : options) {
